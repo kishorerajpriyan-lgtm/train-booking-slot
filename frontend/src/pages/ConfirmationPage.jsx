@@ -64,14 +64,6 @@ function ConfirmationPage() {
           <span>{booking.travel_class}</span>
         </div>
         <div className="detail-row">
-          <span>Email</span>
-          <span>{booking.email}</span>
-        </div>
-        <div className="detail-row">
-          <span>Phone</span>
-          <span>{booking.phone}</span>
-        </div>
-        <div className="detail-row">
           <span>Total Fare</span>
           <span>₹{booking.total_fare?.toLocaleString('en-IN')}</span>
         </div>
@@ -91,17 +83,25 @@ function ConfirmationPage() {
                 <th>Name</th>
                 <th>Age</th>
                 <th>Gender</th>
-                <th>Seat Preference</th>
+                <th>Coach / Seat</th>
+                <th>Berth</th>
               </tr>
             </thead>
             <tbody>
               {booking.passengers.map((p, i) => (
-                <tr key={p.id}>
+                <tr key={p.id || i}>
                   <td>{i + 1}</td>
                   <td>{p.name}</td>
                   <td>{p.age}</td>
                   <td>{p.gender}</td>
-                  <td>{p.seat_preference}</td>
+                  <td>
+                    {p.booked_seat ? (
+                      <span className="seat-badge">
+                        {p.booked_seat.coach_code}/{p.booked_seat.seat_number}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td>{p.booked_seat?.berth_type || '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -110,6 +110,9 @@ function ConfirmationPage() {
       )}
 
       <div className="confirmation-actions">
+        <button className="download-ticket-btn" onClick={() => window.print()}>
+          🖨️ Download / Print Ticket
+        </button>
         <Link to="/" className="btn btn-primary">Book Another</Link>
         <Link to="/my-bookings" className="btn btn-secondary">View My Bookings</Link>
       </div>

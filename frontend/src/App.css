@@ -808,3 +808,85 @@ body {
   margin-top: 0.5rem;
   color: var(--gray-500);
 }
+
+/* ─── Coach Overview ────────────────────────────────────────────────────── */
+
+.coach-overview {
+  margin-bottom: 1.5rem;
+}
+
+.coach-overview h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.75rem;
+}
+
+.coach-grid {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.coach-card-small {
+  background: var(--white);
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  min-width: 80px;
+  text-align: center;
+  transition: border-color 0.2s;
+}
+
+.coach-card-small:hover {
+  border-color: var(--primary);
+}
+
+.coach-header {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--primary);
+}
+
+.coach-seats-info {
+  font-size: 0.85rem;
+}
+
+.coach-seats-info .available {
+  font-weight: 700;
+  color: var(--success);
+}
+
+.coach-seats-info .total {
+  color: var(--gray-500);
+}
+
+.coach-bar {
+  height: 4px;
+  background: var(--gray-200);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.coach-bar-fill {
+  height: 100%;
+  background: var(--danger);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+/* ─── Seat Badge ────────────────────────────────────────────────────────── */
+
+.seat-badge {
+  display: inline-block;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.seat-info {
+  color: var(--primary);
+  font-weight: 500;
+}

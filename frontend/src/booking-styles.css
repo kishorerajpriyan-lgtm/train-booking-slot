@@ -1,0 +1,238 @@
+/* ─── Section Card ─────────────────────────────────────────────────────── */
+.section-card {
+  background: var(--white);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section-header h3 {
+  margin: 0;
+}
+
+/* ─── Compartment Grid ──────────────────────────────────────────────────── */
+.compartment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.compartment-card {
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s, box-shadow 0.15s;
+}
+
+.compartment-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.compartment-card.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.comp-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.comp-label {
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.comp-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.85rem;
+}
+
+.comp-avail {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.comp-fare {
+  color: var(--gray-500);
+}
+
+/* ─── Seat Grid ─────────────────────────────────────────────────────────── */
+.seat-grid-container {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+}
+
+.coach-seat-section {
+  margin-bottom: 1rem;
+}
+
+.coach-title {
+  font-size: 0.9rem;
+  color: var(--gray-700);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.seat-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.seat-cell {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.seat-cell.available {
+  background: #dcfce7;
+  color: var(--success);
+  border-color: #86efac;
+}
+
+.seat-cell.available:hover {
+  background: #86efac;
+  color: #14532d;
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+.seat-cell.booked {
+  background: #fee2e2;
+  color: var(--danger);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.seat-cell.selected {
+  background: var(--primary);
+  color: var(--white);
+  border-color: var(--primary-dark);
+  transform: scale(1.05);
+}
+
+.seat-num {
+  line-height: 1;
+}
+
+.seat-berth {
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+
+/* ─── Booking Summary ───────────────────────────────────────────────────── */
+.booking-summary {
+  background: var(--primary-light);
+  border: 1px solid var(--primary);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.summary-label {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.summary-value {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--gray-900);
+}
+
+.summary-value.total-fare {
+  color: var(--primary);
+  font-size: 1.1rem;
+}
+
+/* ─── Passenger Row (seat-based) ────────────────────────────────────────── */
+.passenger-row {
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.passenger-seat-label {
+  font-size: 0.85rem;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.passenger-seat-label strong {
+  background: var(--primary-light);
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+}
+
+/* ─── Download Ticket ───────────────────────────────────────────────────── */
+.download-ticket-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--success);
+  color: var(--white);
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.download-ticket-btn:hover {
+  background: #15803d;
+}
+
+@media print {
+  .navbar, .btn, .download-ticket-btn, .confirmation-actions {
+    display: none !important;
+  }
+}

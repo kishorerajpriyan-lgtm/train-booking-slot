@@ -7,7 +7,7 @@ from sqlalchemy import (
     Time,
     ForeignKey,
     DateTime,
-    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
@@ -38,13 +38,57 @@ class Train(Base):
     arrival_time = Column(Time, nullable=False)
     duration_hours = Column(Integer, nullable=False)
     running_days = Column(String(50), nullable=False)
-    ac_seats = Column(Integer, nullable=False, default=50)
-    sleeper_seats = Column(Integer, nullable=False, default=100)
     ac_fare = Column(Float, nullable=False)
     sleeper_fare = Column(Float, nullable=False)
     route_stations = Column(ARRAY(String), nullable=False, default=[])
 
     bookings = relationship("Booking", back_populates="train")
+    coaches = relationship("Coach", back_populates="train", cascade="all, delete-orphan")
+
+
+class Coach(Base):
+    __tablename__ = "coaches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    train_id = Column(Integer, ForeignKey("trains.id", ondelete="CASCADE"), nullable=False)
+    coach_code = Column(String(5), nullable=False)  # "S1", "S2", "A1"
+    coach_type = Column(String(10), nullable=False)  # "Sleeper" or "AC"
+    total_seats = Column(Integer, nullable=False)
+
+    __table_args__ = (UniqueConstraint("train_id", "coach_code"),)
+
+    train = relationship("Train", back_populates="coaches")
+    seats = relationship("Seat", back_populates="coach", cascade="all, delete-orphan")
+
+
+class Seat(Base):
+    __tablename__ = "seats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    coach_id = Column(Integer, ForeignKey("coaches.id", ondelete="CASCADE"), nullable=False)
+    seat_number = Column(String(6), nullable=False)  # "1", "2", "1L", "2U", etc.
+    berth_type = Column(String(15), nullable=False)  # Lower, Middle, Upper, Side-Lower, Side-Upper
+    seat_type = Column(String(10), nullable=False)  # Window, Aisle, Middle
+
+    coach = relationship("Coach", back_populates="seats")
+    booked_seats = relationship("BookedSeat", back_populates="seat", cascade="all, delete-orphan")
+
+
+class BookedSeat(Base):
+    __tablename__ = "booked_seats"
+
+    id = Column(Integer, primary_key=True, index=True)
+    booking_id = Column(Integer, ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
+    passenger_id = Column(Integer, ForeignKey("passengers.id", ondelete="CASCADE"), nullable=False)
+    seat_id = Column(Integer, ForeignKey("seats.id", ondelete="CASCADE"), nullable=False)
+    travel_date = Column(Date, nullable=False)
+    coach_code = Column(String(5), nullable=False)
+    seat_number = Column(String(6), nullable=False)
+    berth_type = Column(String(15), nullable=False)
+
+    booking = relationship("Booking", back_populates="booked_seats")
+    seat = relationship("Seat", back_populates="booked_seats")
+    passenger = relationship("Passenger", back_populates="booked_seat")
 
 
 class Booking(Base):
@@ -65,6 +109,9 @@ class Booking(Base):
     passengers = relationship(
         "Passenger", back_populates="booking", cascade="all, delete-orphan"
     )
+    booked_seats = relationship(
+        "BookedSeat", back_populates="booking", cascade="all, delete-orphan"
+    )
 
 
 class Passenger(Base):
@@ -80,3 +127,4 @@ class Passenger(Base):
     seat_preference = Column(String(20), default="No Preference")
 
     booking = relationship("Booking", back_populates="passengers")
+    booked_seat = relationship("BookedSeat", back_populates="passenger", uselist=False, cascade="all, delete-orphan")

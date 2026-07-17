@@ -44,10 +44,6 @@ function BookingCard({ booking, onCancel }) {
           <span>{booking.travel_class}</span>
         </div>
         <div className="booking-detail">
-          <span className="label">Passengers</span>
-          <span>{booking.passengers?.length || 0}</span>
-        </div>
-        <div className="booking-detail">
           <span className="label">Total Fare</span>
           <span>₹{booking.total_fare?.toLocaleString('en-IN')}</span>
         </div>
@@ -59,7 +55,12 @@ function BookingCard({ booking, onCancel }) {
           <ul>
             {booking.passengers.map((p) => (
               <li key={p.id}>
-                {p.name} ({p.age}, {p.gender}) — {p.seat_preference}
+                {p.name} ({p.age}, {p.gender})
+                {p.booked_seat && (
+                  <span className="seat-info">
+                    {' '}— {p.booked_seat.coach_code}/{p.booked_seat.seat_number} ({p.booked_seat.berth_type})
+                  </span>
+                )}
               </li>
             ))}
           </ul>

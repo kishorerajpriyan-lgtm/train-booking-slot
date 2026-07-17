@@ -16,6 +16,34 @@ class StationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ─── Seat / Coach ─────────────────────────────────────────────────────────────
+
+class SeatInfo(BaseModel):
+    seat_id: int
+    seat_number: str
+    berth_type: str
+    seat_type: str
+    booked: bool = False
+
+
+class CoachLayoutResponse(BaseModel):
+    coach_id: int
+    coach_code: str
+    coach_type: str
+    total_seats: int
+    available: int
+    seats: list[SeatInfo]
+
+
+class BookedSeatInfo(BaseModel):
+    coach_code: str
+    seat_number: str
+    berth_type: str
+    seat_type: str = ""
+
+    model_config = {"from_attributes": True}
+
+
 # ─── Passenger ────────────────────────────────────────────────────────────────
 
 class PassengerCreate(BaseModel):
@@ -46,14 +74,14 @@ class PassengerResponse(BaseModel):
     age: int
     gender: str
     seat_preference: str
+    booked_seat: Optional[BookedSeatInfo] = None
 
     model_config = {"from_attributes": True}
 
 
-# ─── Train (needed before BookingResponse) ───────────────────────────────────
+# ─── Train ────────────────────────────────────────────────────────────────────
 
 class TrainInfo(BaseModel):
-    """Minimal train info embedded in booking responses."""
     id: int
     train_number: str
     train_name: str
@@ -119,8 +147,6 @@ class TrainResponse(BaseModel):
     arrival_time: str
     duration_hours: int
     running_days: str
-    ac_seats: int
-    sleeper_seats: int
     ac_fare: float
     sleeper_fare: float
     route_stations: list[str] = []
@@ -131,7 +157,6 @@ class TrainResponse(BaseModel):
 
     @classmethod
     def from_orm_time(cls, train):
-        """Manually build response, converting time fields to strings."""
         return cls(
             id=train.id,
             train_number=train.train_number,
@@ -142,8 +167,6 @@ class TrainResponse(BaseModel):
             arrival_time=train.arrival_time.strftime("%H:%M") if train.arrival_time else "",
             duration_hours=train.duration_hours,
             running_days=train.running_days,
-            ac_seats=train.ac_seats,
-            sleeper_seats=train.sleeper_seats,
             ac_fare=train.ac_fare,
             sleeper_fare=train.sleeper_fare,
             route_stations=train.route_stations or [],

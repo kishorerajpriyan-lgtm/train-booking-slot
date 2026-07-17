@@ -16,6 +16,9 @@ export const searchTrains = (origin, destination, date) =>
 
 export const getTrain = (id) => api.get(`/trains/${id}`);
 
+export const getTrainCoaches = (id, date) =>
+  api.get(`/trains/${id}/coaches`, { params: { travel_date: date } });
+
 // ─── Bookings ────────────────────────────────────────────────────────────────
 
 export const createBooking = (data) => api.post('/bookings', data);

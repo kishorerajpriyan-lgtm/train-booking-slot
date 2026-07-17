@@ -1,4 +1,4 @@
-"""FastAPI main application — Train Ticket Booking API."""
+"""FastAPI main application — Train Ticket Booking API with coach/seat allocation."""
 import uuid
 import random
 import string
@@ -10,17 +10,18 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from database import get_db, init_db
-from models import Train, Booking, Passenger, Station
+from models import Train, Booking, Passenger, Station, Coach, Seat, BookedSeat
 from schemas import (
     BookingCreate,
     BookingResponse,
     TrainResponse,
     StationResponse,
+    CoachLayoutResponse,
 )
+from seat_allocator import allocate_seats, get_coach_layout
 
-app = FastAPI(title="Train Ticket Booking API", version="1.0.0")
+app = FastAPI(title="Train Ticket Booking API", version="2.0.0")
 
-# CORS — allow Vite dev server
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -31,12 +32,9 @@ app.add_middleware(
 
 
 def generate_pnr() -> str:
-    """Generate a unique 10-character alphanumeric PNR."""
     chars = string.ascii_uppercase + string.digits
     return "".join(random.choices(chars, k=10))
 
-
-# ─── Startup ──────────────────────────────────────────────────────────────────
 
 @app.on_event("startup")
 def on_startup():
@@ -47,7 +45,6 @@ def on_startup():
 
 @app.get("/api/stations", response_model=list[StationResponse])
 def get_all_stations(db: Session = Depends(get_db)):
-    """Return all stations for frontend search/autocomplete."""
     return db.query(Station).order_by(Station.name).all()
 
 
@@ -60,73 +57,82 @@ def search_trains(
     travel_date: date = Query(...),
     db: Session = Depends(get_db),
 ):
-    """Search trains by origin, destination, and travel date using route_stations."""
-    origin_upper = origin.strip().upper()
-    dest_upper = destination.strip().upper()
+    day_name = travel_date.strftime("%a")
 
-    # Determine day of week for running_days check
-    day_name = travel_date.strftime("%a")  # "Mon", "Tue", etc.
-
-    # Use PostgreSQL ARRAY containment: route_stations contains both origin AND destination
-    # and origin appears before destination (simplified: just containment, order handled by route)
+    # Return ALL trains running on the selected day
     trains = (
         db.query(Train)
-        .filter(
-            Train.route_stations.any(origin_upper),
-            Train.route_stations.any(dest_upper),
-            Train.running_days.contains(day_name),
-        )
+        .filter(Train.running_days.contains(day_name))
+        .order_by(Train.train_number)
         .all()
     )
 
     result = []
     for train in trains:
-        # Calculate available seats
+        # Count seats from coaches table via booked_seats
         booked_ac = (
-            db.query(func.count(Booking.id))
+            db.query(func.count(BookedSeat.id))
+            .join(Booking)
             .filter(
                 Booking.train_id == train.id,
-                Booking.travel_date == travel_date,
+                BookedSeat.travel_date == travel_date,
                 Booking.travel_class == "AC",
                 Booking.status == "confirmed",
             )
-            .scalar()
-            or 0
+            .scalar() or 0
         )
         booked_sleeper = (
-            db.query(func.count(Booking.id))
+            db.query(func.count(BookedSeat.id))
+            .join(Booking)
             .filter(
                 Booking.train_id == train.id,
-                Booking.travel_date == travel_date,
+                BookedSeat.travel_date == travel_date,
                 Booking.travel_class == "Sleeper",
                 Booking.status == "confirmed",
             )
-            .scalar()
-            or 0
+            .scalar() or 0
         )
 
+        total_ac = db.query(func.count(Seat.id)).join(Coach).filter(
+            Coach.train_id == train.id, Coach.coach_type == "AC"
+        ).scalar() or 0
+        total_sl = db.query(func.count(Seat.id)).join(Coach).filter(
+            Coach.train_id == train.id, Coach.coach_type == "Sleeper"
+        ).scalar() or 0
+
         train_data = TrainResponse.from_orm_time(train)
-        train_data.available_ac_seats = max(0, train.ac_seats - booked_ac)
-        train_data.available_sleeper_seats = max(0, train.sleeper_seats - booked_sleeper)
+        train_data.available_ac_seats = max(0, total_ac - booked_ac)
+        train_data.available_sleeper_seats = max(0, total_sl - booked_sleeper)
         result.append(train_data)
 
-    return result  # returns empty list if no trains — no 404 error
+    return result
 
 
 @app.get("/api/trains/{train_id}", response_model=TrainResponse)
 def get_train(train_id: int, db: Session = Depends(get_db)):
-    """Get a single train by ID."""
     train = db.query(Train).filter(Train.id == train_id).first()
     if not train:
         raise HTTPException(status_code=404, detail="Train not found")
     return TrainResponse.from_orm_time(train)
 
 
+@app.get("/api/trains/{train_id}/coaches", response_model=list[CoachLayoutResponse])
+def get_train_coaches(
+    train_id: int,
+    travel_date: date = Query(...),
+    db: Session = Depends(get_db),
+):
+    """Get full coach/seat layout for a train on a given date."""
+    train = db.query(Train).filter(Train.id == train_id).first()
+    if not train:
+        raise HTTPException(status_code=404, detail="Train not found")
+    return get_coach_layout(db, train_id, travel_date)
+
+
 # ─── Booking Routes ───────────────────────────────────────────────────────────
 
 @app.post("/api/bookings", response_model=BookingResponse, status_code=201)
 def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db)):
-    """Create a new booking with passengers."""
     train = db.query(Train).filter(Train.id == booking_data.train_id).first()
     if not train:
         raise HTTPException(status_code=404, detail="Train not found")
@@ -141,34 +147,28 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db)):
             detail=f"Train {train.train_number} does not run on {day_name}",
         )
 
-    num_passengers = len(booking_data.passengers)
-    booked_count = (
-        db.query(func.count(Booking.id))
-        .filter(
-            Booking.train_id == train.id,
-            Booking.travel_date == booking_data.travel_date,
-            Booking.travel_class == booking_data.travel_class,
-            Booking.status == "confirmed",
-        )
-        .scalar()
-        or 0
+    # Allocate seats
+    passenger_dicts = [
+        {"name": p.name, "age": p.age, "gender": p.gender, "seat_preference": p.seat_preference}
+        for p in booking_data.passengers
+    ]
+
+    allocations = allocate_seats(
+        db,
+        booking_data.train_id,
+        booking_data.travel_date,
+        booking_data.travel_class,
+        passenger_dicts,
     )
 
-    total_seats = (
-        train.ac_seats if booking_data.travel_class == "AC" else train.sleeper_seats
-    )
-    available = total_seats - booked_count
-
-    if num_passengers > available:
+    if allocations is None:
         raise HTTPException(
             status_code=400,
-            detail=f"Only {available} seats available in {booking_data.travel_class} class",
+            detail=f"Not enough seats available in {booking_data.travel_class} class",
         )
 
-    fare_per_passenger = (
-        train.ac_fare if booking_data.travel_class == "AC" else train.sleeper_fare
-    )
-    total_fare = fare_per_passenger * num_passengers
+    fare = train.ac_fare if booking_data.travel_class == "AC" else train.sleeper_fare
+    total_fare = fare * len(booking_data.passengers)
 
     pnr = generate_pnr()
     while db.query(Booking).filter(Booking.pnr == pnr).first():
@@ -186,15 +186,29 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db)):
     db.add(booking)
     db.flush()
 
-    for p in booking_data.passengers:
+    # Add passengers and book seats
+    for alloc in allocations:
+        p_data = passenger_dicts[alloc["passenger_index"]]
         passenger = Passenger(
             booking_id=booking.id,
-            name=p.name,
-            age=p.age,
-            gender=p.gender,
-            seat_preference=p.seat_preference,
+            name=p_data["name"],
+            age=p_data["age"],
+            gender=p_data["gender"],
+            seat_preference=p_data["seat_preference"],
         )
         db.add(passenger)
+        db.flush()
+
+        booked = BookedSeat(
+            booking_id=booking.id,
+            passenger_id=passenger.id,
+            seat_id=alloc["seat_id"],
+            travel_date=booking_data.travel_date,
+            coach_code=alloc["coach_code"],
+            seat_number=alloc["seat_number"],
+            berth_type=alloc["berth_type"],
+        )
+        db.add(booked)
 
     db.commit()
     db.refresh(booking)
@@ -204,7 +218,6 @@ def create_booking(booking_data: BookingCreate, db: Session = Depends(get_db)):
 
 @app.get("/api/bookings/pnr/{pnr}", response_model=BookingResponse)
 def get_booking_by_pnr(pnr: str, db: Session = Depends(get_db)):
-    """Get a booking by PNR number."""
     booking = db.query(Booking).filter(Booking.pnr == pnr.upper()).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -215,7 +228,6 @@ def get_booking_by_pnr(pnr: str, db: Session = Depends(get_db)):
 def get_bookings_by_email(
     email: str = Query(..., min_length=1), db: Session = Depends(get_db)
 ):
-    """Get all bookings for an email address."""
     bookings = (
         db.query(Booking)
         .filter(Booking.email.ilike(email.strip()))
@@ -223,15 +235,12 @@ def get_bookings_by_email(
         .all()
     )
     if not bookings:
-        raise HTTPException(
-            status_code=404, detail=f"No bookings found for email: {email}"
-        )
+        raise HTTPException(status_code=404, detail=f"No bookings found for email: {email}")
     return [BookingResponse.model_validate(b) for b in bookings]
 
 
 @app.put("/api/bookings/{pnr}/cancel", response_model=BookingResponse)
 def cancel_booking(pnr: str, db: Session = Depends(get_db)):
-    """Cancel a booking by PNR."""
     booking = db.query(Booking).filter(Booking.pnr == pnr.upper()).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
@@ -241,7 +250,6 @@ def cancel_booking(pnr: str, db: Session = Depends(get_db)):
     booking.status = "cancelled"
     db.commit()
     db.refresh(booking)
-
     return BookingResponse.model_validate(booking)
 
 
